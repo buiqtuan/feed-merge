@@ -1,0 +1,153 @@
+Objective: Generate a full-stack application boilerplate for a social media management tool for video creators.
+
+Core Tech Stack:
+
+Mobile App: Flutter (using Dart)
+
+Backend/API: Python with FastAPI
+
+Database: PostgreSQL
+
+Database ORM: SQLAlchemy with Alembic for migrations
+
+Data Validation: Pydantic
+
+Push Notifications: Firebase Cloud Messaging (FCM)
+
+Deployment Target: To be determined by a cost-effective cloud provider.
+
+Part 1: Project Structure
+For this stack, a monorepo is less conventional. A simpler approach with two separate top-level directories is recommended.
+
+AI, please generate this folder structure:
+
+/my-creator-app/
+|-- /app_flutter/         # The Flutter mobile application
+|   |-- /lib/
+|   |   |-- /api/         # API client and data models
+|   |   |-- /blocs/ or /providers/ # State management logic
+|   |   |-- /models/      # App-level data models
+|   |   |-- /repositories/ # Data-fetching logic
+|   |   |-- /screens/     # UI for each app screen
+|   |   |-- /services/    # Notification, storage services
+|   |   |-- /widgets/     # Reusable UI widgets
+|   |   |-- main.dart
+|   |   |-- routes.dart   # Navigation routes using go_router
+|   |-- /assets/
+|   |-- pubspec.yaml      # Flutter's package manager file
+|
+|-- /server_fastapi/      # The FastAPI backend server
+|   |-- /app/
+|   |   |-- /api/         # API router files (auth, posts, etc.)
+|   |   |-- /core/        # Core config, settings
+|   |   |-- /crud/        # Reusable database operations
+|   |   |-- /db/          # Database session, base model
+|   |   |-- /models/      # SQLAlchemy ORM models
+|   |   |-- /schemas/     # Pydantic validation schemas
+|   |   |-- /services/    # Business logic (video, notifications)
+|   |   |-- main.py       # Main FastAPI app instance
+|   |-- /alembic/         # Alembic migration scripts
+|   |-- alembic.ini       # Alembic configuration
+|   |-- requirements.txt  # Python dependencies
+|   |-- .env              # Environment variables
+|
+|-- .gitignore
+Part 2: Database Schema (SQLAlchemy & PostgreSQL)
+The database will be defined using SQLAlchemy models and managed with Alembic for migrations.
+
+AI, please generate SQLAlchemy models in /server_fastapi/app/models/ and corresponding Pydantic schemas in /server_fastapi/app/schemas/. The database models should be functionally identical to the previous spec.
+
+User (SQLAlchemy Model):
+
+id (Integer, primary key), email (String, unique), hashed_password (String), name (String, nullable), created_at.
+
+SocialConnection (SQLAlchemy Model):
+
+id, platform (String), platform_user_id (String), encrypted_access_token (String), encrypted_refresh_token (String, nullable), expires_at (DateTime, nullable), scopes (JSON), user_id (ForeignKey to User).
+
+Post & PostTarget (SQLAlchemy Models): Similar structure to before, with status enums, timestamps, and relationships.
+
+NotificationToken (SQLAlchemy Model): For storing user FCM tokens.
+
+Key Implementation Ideas:
+
+Alembic: Set up alembic.ini and the env.py file to handle auto-generating migration scripts based on changes to the SQLAlchemy models.
+
+Pydantic: For every SQLAlchemy model, create a corresponding Pydantic schema for API data validation (e.g., UserCreate, UserRead). This is a core strength of FastAPI.
+
+Encryption: Use the cryptography Python library to create utility functions for encrypting and decrypting the OAuth tokens before storing them.
+
+Part 3: Backend API (FastAPI)
+FastAPI will be used to build a high-performance, self-documenting API.
+
+AI, please implement the following API endpoints using FastAPI routers:
+
+Authentication (/app/api/auth.py):
+
+Use FastAPI's built-in OAuth2PasswordBearer for security.
+
+Use the passlib library for hashing and verifying passwords.
+
+Use the python-jose library for creating and validating JWTs.
+
+POST /auth/register: Takes a UserCreate Pydantic schema, hashes the password, creates a User, and returns a JWT.
+
+POST /auth/token: Standard OAuth2 endpoint. Takes a username (email) and password, verifies credentials, and returns an access token.
+
+POST /auth/oauth/connect: Handles the server-side OAuth flow, receiving the code, exchanging it for tokens, and saving the SocialConnection.
+
+Scheduling & Uploads (/app/api/posts.py):
+
+POST /posts/upload-url: Create an endpoint that uses the cloud provider's Python SDK (e.g., boto3 for AWS) to generate a pre-signed URL for a direct-to-cloud video upload.
+
+POST /posts: Create a scheduled post. This endpoint should be protected, requiring a valid JWT. It will take Pydantic models as input and create the database records.
+
+Background Scheduler:
+
+FastAPI's built-in BackgroundTasks is suitable for short, non-critical tasks. For the core scheduler, a more robust solution is needed.
+
+Recommendation: Use Celery with Redis as the message broker.
+
+AI, please set up a basic Celery configuration. Create a Celery task publish_scheduled_posts() that runs on a periodic schedule (e.g., every minute). This task will perform the same logic as described in the Node.js spec: query the DB, fetch tokens, call the social media APIs, and update the post status.
+
+Part 4: Mobile App (Flutter)
+Flutter will be used for building a beautiful, high-performance native app from a single codebase.
+
+AI, please configure the Flutter app with these key packages and logic:
+
+State Management: Use the provider or riverpod package. Set up providers for authentication state and for managing the data for the content calendar.
+
+Navigation: Use go_router. Define routes for /login, /register, /home, /settings, /new-post, etc., with redirect logic based on authentication state.
+
+API Client: Use the dio package. Create a Dio instance with an interceptor to:
+
+Automatically add the JWT access token to the request headers.
+
+Handle token expiration by implementing a refresh logic (though a simple logout on 401 is sufficient for an MVP).
+
+Secure Storage: Use flutter_secure_storage to securely persist the JWTs on the device.
+
+OAuth Flow: Use the flutter_web_auth_2 package. When a user clicks "Connect," this package will open a secure in-app browser window for the OAuth flow. It can capture the final redirect URL to extract the authorization code to send to your FastAPI backend.
+
+Background Video Upload: Use the flutter_uploader package. This is a robust, long-running background task manager specifically for uploads. The flow is identical to the React Native version: get the pre-signed URL from your FastAPI backend, then pass the file path and URL to flutter_uploader to handle the transfer in the background.
+
+Part 5: Push Notifications (Firebase)
+AI, please set up the Firebase integration for Flutter and Python.
+
+Flutter App (/app_flutter/lib/services/notification_service.dart):
+
+Integrate firebase_core and firebase_messaging.
+
+Create a service to initialize Firebase, request user permission, and get the device's FCM token.
+
+Send the token to a POST /users/notification-token endpoint on the FastAPI backend.
+
+Set up handlers for foreground and background messages.
+
+FastAPI Backend (/server_fastapi/app/services/notification_service.py):
+
+Use the firebase-admin Python SDK.
+
+Create a send_notification service function that takes a user_id and a message payload.
+
+This function will query your database for the user's FCM tokens and use the firebase_admin.messaging module to send the notification.

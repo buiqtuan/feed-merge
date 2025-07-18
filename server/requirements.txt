@@ -1,0 +1,44 @@
+# FastAPI: Web framework for building APIs
+fastapi==0.104.1
+# Uvicorn: ASGI server for running FastAPI apps
+uvicorn[standard]==0.24.0
+# SQLAlchemy: ORM for database models and queries
+sqlalchemy==2.0.23
+# Alembic: Database migrations for SQLAlchemy
+alembic==1.12.1
+# psycopg2-binary: PostgreSQL database driver
+psycopg2-binary==2.9.9
+# Pydantic: Data validation and settings management
+pydantic==2.5.0
+# pydantic-settings: Environment/config management for Pydantic
+pydantic-settings==2.1.0
+# email-validator: Email validation for Pydantic EmailStr fields
+email-validator==2.2.0
+# python-jose: JWT and cryptography for authentication
+python-jose[cryptography]==3.3.0
+# passlib: Password hashing utilities
+passlib[bcrypt]==1.7.4
+# python-multipart: File uploads and form parsing
+python-multipart==0.0.6
+# firebase-admin: Firebase Admin SDK for push notifications
+firebase-admin==6.4.0
+# python-dotenv: Load environment variables from .env files
+python-dotenv==1.0.0
+# cryptography: Encryption and security utilities
+cryptography==41.0.7
+# Celery: Distributed task queue for background jobs
+celery==5.3.4
+# Redis: In-memory data store, used as Celery broker
+redis==5.0.1
+# boto3: AWS SDK for Python (S3 uploads, etc.)
+boto3==1.34.19
+# requests: HTTP client for making API calls
+requests==2.31.0
+# httpx: Async HTTP client for FastAPI
+httpx==0.25.2
+# pytest: Testing framework for Python
+pytest==8.2.2
+# pytest-cov: Coverage plugin for pytest
+pytest-cov==5.0.0
+# pytest-asyncio: Async support for pytest
+pytest-asyncio==0.24.0
