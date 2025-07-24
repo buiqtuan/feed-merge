@@ -171,3 +171,118 @@ The app expects these backend endpoints:
 - Add new social platforms in `oauth_service.dart`
 - Extend post model for additional metadata
 - Customize UI components in the `widgets/` directory
+
+## The overall flow:
+User Account & Authentication
+This section covers how users access and secure their accounts within your app.
+
+Email & Password Registration: A standard sign-up form where a new user can create an account using their email address and a secure password. The process would include an email verification step to ensure the user's email is valid.
+
+Social Login (Google & Facebook): One-click buttons on the sign-up/login screen allowing users to create an account or log in instantly using their existing Google or Facebook profiles. This is the fastest and most convenient way for users to get started.
+
+Standard Login & Logout: A simple login screen for returning users to enter their email and password. The logout function, accessible from a user menu, securely ends the session and returns the user to the login screen.
+
+Password Reset: A "Forgot Password?" link on the login screen that initiates a secure flow where a user can enter their email to receive instructions on how to reset their password.
+
+Social Account & Platform Integration
+This is the core of connecting the app to a creator's social media presence.
+
+Connect Social Accounts: A dedicated section in the app (likely under "Settings") where the user sees a list of supported platforms (Instagram, TikTok, YouTube, Facebook). Each platform has a "Connect" button.
+
+Secure OAuth Flow: When the user clicks "Connect," a secure, in-app browser window opens directly to the official login page for that platform (e.g., the standard Instagram login screen). The user enters their credentials there, and the app never sees or stores their password.
+
+Granting Permissions: After logging in, the platform will ask the user to grant your app specific permissions, such as "publish content on your behalf" and "access your analytics."
+
+Manage Connections: A view where the user can see all their currently connected accounts, with the ability to "Reconnect" if a token has expired or "Disconnect" to remove a platform from the app.
+
+Content Creation & Scheduling Workflow
+This is the main "doing" part of the app, where creators prepare and schedule their content.
+
+Start New Post: A primary button in the UI (e.g., a "+" icon) that opens the main "composer" screen.
+
+Media Library & Video Upload: The user is first prompted to select a video. They can either upload a new video from their phone/computer or choose one they've previously uploaded to their in-app media library.
+
+AI Video Repurposing (Advanced Feature): An option to upload a longer video (e.g., from YouTube) and have the app's AI automatically suggest several shorter, "viral-ready" clips. The user can then select one of these clips to proceed.
+
+Multi-Platform Customization: The core of the composer. The screen shows the video preview and a series of tabs or sections for each connected platform (Instagram, TikTok, etc.). The user can switch between these tabs to write a unique caption, title, and set of hashtags for each destination.
+
+Platform-Specific Options:
+
+Instagram: A dedicated field for scheduling the "First Comment" and a toggle to "Share to Feed."
+
+TikTok: Toggles for "Allow Duets," "Allow Stitches," and "Allow Comments."
+
+YouTube: Fields for "Video Title" (different from the description), "Visibility" (Public, Private, Unlisted), and "Tags."
+
+Thumbnail/Cover Selection: An intuitive tool that allows the user to either scrub through the video to select a specific frame as the cover image or upload a separate, custom-designed thumbnail.
+
+Scheduling & Publishing Options:
+
+Schedule for Later: The user can pick a specific date and time from a calendar view for the post to go live.
+
+Publish Now: A button to immediately start the publishing process.
+
+Save as Draft: The ability to save the entire configured post as a draft to finish later.
+
+Content Management & Calendar
+This section covers how users view and organize their scheduled and published content.
+
+Visual Content Calendar: A full-screen calendar (with month, week, and day views) that visually displays all scheduled, published, and draft posts. Each post is shown as a small card with the video thumbnail, making it easy to see the content plan at a glance.
+
+Drag-and-Drop Rescheduling: The ability to simply click and drag a scheduled post from one day to another on the calendar to instantly reschedule it.
+
+Post Status Indicators: Clear visual cues on each post card (e.g., a colored dot or icon) to indicate its status: 🟡 Scheduled, 🟢 Published, 🔴 Failed, ⚫️ Draft.
+
+Content Filtering & Searching: The ability to filter the calendar view by social platform or post status, as well as a search bar to find specific posts by their caption or title.
+
+Editing Scheduled Posts: Clicking on any scheduled post in the calendar opens the composer view, allowing the user to edit the caption, scheduled time, or any other detail before it goes live.
+
+Analytics & Performance Tracking
+This is where creators see the results of their work.
+
+Unified Analytics Dashboard: A main dashboard that gives a high-level overview of performance across all connected accounts. It would feature key metrics like Total Views, Total Likes, Follower Growth, and Engagement Rate over a set period (e.g., last 30 days).
+
+Post-by-Post Analytics: The ability to click on any published post to see a detailed breakdown of its performance, including views, likes, comments, shares, saves, and watch time.
+
+Deep Video Analytics: For supported platforms, this would show an Audience Retention graph, a line chart that visualizes exactly when viewers are dropping off during the video, helping creators understand what parts are boring or engaging.
+
+Platform Comparison: A feature that allows creators to see how the same video performed differently across Instagram, TikTok, and YouTube, helping them understand where their content resonates best.
+
+App Settings & Management
+This includes general account and application management features.
+
+Profile Management: A section for the user to update their name, email address, or password.
+
+Plan & Billing: An area where the user can see their current subscription plan, view billing history, and upgrade or change their plan.
+
+Notification Preferences: Toggles allowing the user to control which push notifications they receive (e.g., "when a post is successfully published," "when a post fails," "weekly performance summary").
+
+Help & Support: An integrated help center with FAQs, tutorials, and a way to contact customer support.
+
+## MILESTONE:
+🎯 Implementation Priority Suggestions
+Phase 1: MVP Foundation
+Authentication system
+Basic social account connection (using our new APIs)
+Simple post composer
+Immediate publishing
+Phase 2: Core Features
+Content calendar
+Scheduling system
+Basic analytics
+Draft management
+Phase 3: Advanced Features
+AI video repurposing
+Deep analytics
+Batch operations
+Advanced scheduling
+🔄 Process Improvements
+1. Documentation Updates Needed
+Update backend endpoint references
+Add error handling documentation
+Include testing guidelines
+Add deployment instructions
+2. Development Workflow
+Consider adding CI/CD pipeline setup
+Code generation for API models
+Automated testing integration

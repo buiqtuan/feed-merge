@@ -1,5 +1,5 @@
-name: my_creator_app
-description: A Flutter mobile application for creators.
+name: feedmerge_app
+description: A Flutter mobile application for social media content management and publishing.
 
 version: 1.0.0+1
 
@@ -27,14 +27,14 @@ dependencies:
   flutter_web_auth_2: ^3.0.5
   
   # Background Upload
-  flutter_uploader: ^3.0.0
+  flutter_uploader: ^3.0.0-beta.4
   
   # Image Picker
   image_picker: ^1.0.4
   
-  # Firebase for notifications
-  firebase_core: ^2.24.2
-  firebase_messaging: ^14.7.5
+  # Firebase for notifications (temporarily disabled)
+  # firebase_core: ^2.24.2
+  # firebase_messaging: ^14.7.5
   
   # UI utilities
   cupertino_icons: ^1.0.2
