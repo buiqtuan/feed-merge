@@ -68,6 +68,9 @@ This guide will help you set up and run the FeedMerge FastAPI application with C
    ```bash
    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
+   ```
+   python server_runner.py
+   ```
 
 2. **Start Redis server** (in another terminal):
    ```bash

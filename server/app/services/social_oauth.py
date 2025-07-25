@@ -39,7 +39,7 @@ class OAuthConfig:
                 "token_url": "https://graph.facebook.com/v18.0/oauth/access_token",
                 "profile_url": "https://graph.facebook.com/me",
                 "redirect_uri": settings.FACEBOOK_REDIRECT_URI or base_redirect_uri,
-                "scope": "instagram_basic,instagram_content_publish,instagram_manage_insights,pages_show_list,pages_read_engagement,read_insights,email,public_profile",
+                "scope": "email,public_profile",
                 "response_type": "code"
             },
             SocialPlatform.TIKTOK: {

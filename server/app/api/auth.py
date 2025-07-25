@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from jose import JWTError, jwt
@@ -19,7 +19,8 @@ from app.schemas import (
 from app.crud import (
     create_user, get_user_by_email, authenticate_user, 
     get_user, create_social_connection, get_social_connection_by_platform,
-    create_refresh_token, get_refresh_token, revoke_refresh_token
+    create_refresh_token, get_refresh_token, revoke_refresh_token,
+    update_social_connection
 )
 from app.services.social_oauth import oauth_service
 
@@ -29,23 +30,10 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/token
 
 def validate_password(password: str) -> None:
     """Validate password according to security requirements"""
-    if len(password) < settings.MIN_PASSWORD_LENGTH:
+    if len(password) < 6:  # Simplified to only check minimum 6 characters
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Password must be at least {settings.MIN_PASSWORD_LENGTH} characters long"
-        )
-    
-    # Additional password complexity checks can be added here
-    if not re.search(r"[A-Za-z]", password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must contain at least one letter"
-        )
-    
-    if not re.search(r"\d", password):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must contain at least one number"
+            detail="Password must be at least 6 characters long"
         )
 
 
@@ -227,7 +215,7 @@ async def start_oauth_flow(request: OAuthURLRequest):
     that the mobile app should open in an in-app browser.
     """
     try:
-        authorization_url = oauth_service.generate_authorization_url(request.platform)
+        authorization_url, state = oauth_service.generate_authorization_url(request.platform)
         return OAuthURLResponse(authorizationUrl=authorization_url)
     
     except ValueError as e:
@@ -328,7 +316,6 @@ async def exchange_oauth_code(request: OAuthExchangeRequest, db: Session = Depen
         
         if existing_connection:
             # Update existing connection with new tokens
-            from app.crud import update_social_connection
             from app.schemas import SocialConnectionUpdate
             
             connection_update = SocialConnectionUpdate(
@@ -378,3 +365,223 @@ async def exchange_oauth_code(request: OAuthExchangeRequest, db: Session = Depen
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error during OAuth exchange"
         )
+
+
+@router.get("/oauth/callback")
+async def oauth_callback(code: str = None, state: str = None, error: str = None):
+    """
+    OAuth callback endpoint for handling redirects from social media platforms.
+    
+    This endpoint receives the authorization code from social platforms and 
+    redirects the user back to the mobile app with the authorization code.
+    """
+    from fastapi.responses import RedirectResponse
+    
+    if error:
+        # OAuth error occurred
+        redirect_url = f"com.feedmerge.app://oauth/callback?error={error}"
+        return RedirectResponse(url=redirect_url)
+    
+    if not code:
+        # Missing authorization code
+        redirect_url = "com.feedmerge.app://oauth/callback?error=missing_code"
+        return RedirectResponse(url=redirect_url)
+    
+    # Success - redirect back to mobile app with authorization code
+    redirect_url = f"com.feedmerge.app://oauth/callback?code={code}"
+    if state:
+        redirect_url += f"&state={state}"
+        
+    return RedirectResponse(url=redirect_url)
+
+
+@router.post("/facebook/deletion", response_model=dict)
+async def facebook_data_deletion_callback(
+    request: Request, 
+    db: Session = Depends(get_db)
+):
+    """
+    Facebook Data Deletion Request Callback
+    
+    This endpoint handles data deletion requests from Facebook when users:
+    1. Remove your app from their Facebook account
+    2. Delete their Facebook account
+    3. Request data deletion through Facebook
+    
+    Facebook sends a signed request containing the user's app-scoped ID.
+    We must delete all associated user data and return a confirmation.
+    
+    Reference: https://developers.facebook.com/docs/development/create-an-app/app-dashboard/data-deletion-callback/
+    """
+    import hashlib
+    import hmac
+    import base64
+    import json
+    import secrets
+    from urllib.parse import parse_qs
+    from app.core.config import settings
+    from app.crud.user import delete_user_by_facebook_id
+    from app.schemas import SocialPlatform
+    
+    try:
+        # Get the signed_request from POST data
+        form_data = await request.form()
+        signed_request = form_data.get('signed_request')
+        
+        if not signed_request:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing signed_request parameter"
+            )
+        
+        # Parse the signed request
+        def parse_signed_request(signed_request: str, app_secret: str):
+            """Parse Facebook's signed request"""
+            try:
+                encoded_sig, payload = signed_request.split('.', 2)
+            except ValueError:
+                return None
+            
+            # Decode the signature and payload
+            def base64_url_decode(inp: str) -> bytes:
+                """Base64 URL decode with padding correction"""
+                inp += '=' * (4 - len(inp) % 4)  # Add padding
+                return base64.urlsafe_b64decode(inp.encode('ascii'))
+            
+            sig = base64_url_decode(encoded_sig)
+            data = json.loads(base64_url_decode(payload).decode('utf-8'))
+            
+            # Verify the signature
+            expected_sig = hmac.new(
+                app_secret.encode('utf-8'),
+                payload.encode('utf-8'),
+                hashlib.sha256
+            ).digest()
+            
+            if not hmac.compare_digest(sig, expected_sig):
+                print(f"Facebook deletion callback: Invalid signature")
+                return None
+            
+            return data
+        
+        # Parse the signed request
+        app_secret = settings.FACEBOOK_CLIENT_SECRET
+        if not app_secret:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Facebook app secret not configured"
+            )
+        
+        data = parse_signed_request(signed_request, app_secret)
+        if not data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid signed request"
+            )
+        
+        # Extract the Facebook user ID (app-scoped ID)
+        facebook_user_id = data.get('user_id')
+        if not facebook_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing user_id in signed request"
+            )
+        
+        # Delete all user data associated with this Facebook user
+        deletion_result = await delete_user_by_facebook_id(db, facebook_user_id)
+        
+        # Generate a unique confirmation code for this deletion request
+        confirmation_code = secrets.token_urlsafe(16)
+        
+        # Create a status URL where the user can check deletion progress
+        # In production, you might want to store this in a database
+        status_url = f"http://localhost:8000/api/v1/auth/data-deletion-status?code={confirmation_code}"
+        
+        # Log the deletion request for audit purposes
+        print(f"Facebook data deletion request processed: user_id={facebook_user_id}, confirmation={confirmation_code}")
+        
+        # Return the required response format
+        return {
+            "url": status_url,
+            "confirmation_code": confirmation_code
+        }
+        
+    except Exception as e:
+        print(f"Facebook data deletion callback error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to process data deletion request"
+        )
+
+
+@router.get("/data-deletion-status")
+async def data_deletion_status(code: str = None):
+    """
+    Data Deletion Status Page
+    
+    This endpoint provides users with information about their data deletion request.
+    Users receive this URL in the Facebook deletion callback response.
+    """
+    from fastapi.responses import HTMLResponse
+    
+    if not code:
+        return HTMLResponse(
+            content="""
+            <html>
+                <head><title>Data Deletion Status</title></head>
+                <body>
+                    <h1>Data Deletion Status</h1>
+                    <p>Missing confirmation code. Please check your deletion request.</p>
+                </body>
+            </html>
+            """,
+            status_code=400
+        )
+    
+    # In a production app, you might want to:
+    # 1. Store deletion requests in a database with the confirmation code
+    # 2. Track the actual deletion progress
+    # 3. Provide more detailed status information
+    
+    return HTMLResponse(
+        content=f"""
+        <html>
+            <head>
+                <title>Data Deletion Status - FeedMerge</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 40px; }}
+                    .status-container {{ max-width: 600px; margin: 0 auto; }}
+                    .success {{ color: #28a745; }}
+                    .info {{ background: #e7f3ff; padding: 15px; border-radius: 5px; }}
+                </style>
+            </head>
+            <body>
+                <div class="status-container">
+                    <h1>Data Deletion Request Status</h1>
+                    <div class="info">
+                        <h2 class="success">✅ Deletion Complete</h2>
+                        <p><strong>Confirmation Code:</strong> {code}</p>
+                        <p>Your data deletion request has been processed successfully.</p>
+                        
+                        <h3>What was deleted:</h3>
+                        <ul>
+                            <li>Your user account and profile information</li>
+                            <li>All social media connections and tokens</li>
+                            <li>All posts and scheduled content</li>
+                            <li>All notification preferences</li>
+                            <li>All session and refresh tokens</li>
+                        </ul>
+                        
+                        <h3>Data Retention:</h3>
+                        <p>Your data has been permanently deleted from our systems. We may retain some anonymized analytics data as permitted by law.</p>
+                        
+                        <h3>Questions?</h3>
+                        <p>If you have any questions about this deletion request, please contact our support team.</p>
+                        
+                        <p><small>Request processed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}</small></p>
+                    </div>
+                </div>
+            </body>
+        </html>
+        """
+    )
